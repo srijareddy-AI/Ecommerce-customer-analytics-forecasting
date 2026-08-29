@@ -13,11 +13,9 @@ def load_data():
     daily_revenue['ds'] = pd.to_datetime(daily_revenue['ds'])
     forecast = pd.read_csv('forecast.csv')
     forecast['ds'] = pd.to_datetime(forecast['ds'])
-    df = pd.read_csv('clean_retail.csv')
-    df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'])
-    return rfm, daily_revenue, forecast, df
+    return rfm, daily_revenue, forecast
 
-rfm, daily_revenue, forecast, df = load_data()
+rfm, daily_revenue, forecast = load_data()
 
 st.title("📊 E-Commerce Customer Analytics & Revenue Forecasting")
 st.markdown("""
@@ -26,18 +24,18 @@ online retailer (Dec 2010 – Dec 2011). Combines customer segmentation (RFM + K
 90-day revenue forecasting (Prophet), and executive-level KPIs.
 """)
 
-# --- KPI ROW ---
+# --- KPI ROW (calculated from RFM + daily revenue data) ---
 st.divider()
-total_revenue = df['Revenue'].sum()
-total_customers = df['CustomerID'].nunique()
-avg_order_value = df.groupby('InvoiceNo')['Revenue'].sum().mean()
-total_orders = df['InvoiceNo'].nunique()
+total_revenue = rfm['Monetary'].sum()
+total_customers = rfm.shape[0]
+avg_customer_value = rfm['Monetary'].mean()
+avg_daily_revenue = daily_revenue['y'].mean()
 
 k1, k2, k3, k4 = st.columns(4)
 k1.metric("Total Revenue", f"£{total_revenue:,.0f}")
 k2.metric("Total Customers", f"{total_customers:,}")
-k3.metric("Total Orders", f"{total_orders:,}")
-k4.metric("Avg Order Value", f"£{avg_order_value:,.2f}")
+k3.metric("Avg Revenue per Customer", f"£{avg_customer_value:,.2f}")
+k4.metric("Avg Daily Revenue", f"£{avg_daily_revenue:,.0f}")
 
 # --- CUSTOMER SEGMENTATION ---
 st.divider()
@@ -89,13 +87,15 @@ st.pyplot(fig2)
 next_30 = forecast.tail(90).head(30)['yhat'].sum()
 st.info(f"💡 **Forecast Insight:** Projected revenue for the next 30 days: **£{next_30:,.0f}**")
 
-# --- COUNTRY BREAKDOWN ---
+# --- CUSTOMER VALUE DISTRIBUTION (replaces country breakdown) ---
 st.divider()
-st.header("Revenue by Country (Top 10)")
-country_revenue = df.groupby('Country')['Revenue'].sum().sort_values(ascending=False).head(10)
+st.header("Customer Value Distribution")
+st.markdown("How total spend is distributed across the customer base — most customers cluster at lower spend, with a long tail of high-value customers.")
+
 fig3, ax3 = plt.subplots(figsize=(10, 4))
-ax3.barh(country_revenue.index[::-1], country_revenue.values[::-1], color='#2980B9')
-ax3.set_xlabel('Revenue (£)')
+ax3.hist(rfm['Monetary'].clip(upper=rfm['Monetary'].quantile(0.95)), bins=40, color='#2980B9', edgecolor='white')
+ax3.set_xlabel('Customer Total Spend (£, capped at 95th percentile for readability)')
+ax3.set_ylabel('Number of Customers')
 plt.tight_layout()
 st.pyplot(fig3)
 
